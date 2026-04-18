@@ -350,7 +350,7 @@ let editBikeId=null,editClientId=null,editStoreId=null,configClientId=null,curre
 async function doLogin(){
   const key=document.getElementById('login-key').value.trim();
   try{
-    const r=await fetch(`${API}/api/auth/verify`,{headers:{'x-api-key':key}});
+    const r=await fetch(`${API}/api/auth/verify`,{method:'POST',headers:{'x-api-key':key}});
     if(!r.ok) throw 0;
     apiKey=key;
     document.getElementById('login-screen').style.display='none';
