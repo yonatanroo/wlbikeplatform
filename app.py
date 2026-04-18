@@ -217,6 +217,10 @@ async def verify_auth(x_api_key: Optional[str] = Header(None)):
     if x_api_key == ADMIN_KEY: return {"ok": True}
     raise HTTPException(status_code=401, detail="Verkeerde sleutel")
 
+@app.get("/api/debug/key")
+async def debug_key():
+    return {"expected_length": len(ADMIN_KEY), "first3": ADMIN_KEY[:3] if ADMIN_KEY else ""}
+
 # ════════════════════════════════════════════════════════════════════════════
 # BIKES
 # ════════════════════════════════════════════════════════════════════════════
