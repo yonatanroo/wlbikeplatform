@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Welease – Bike Platform Admin</title>
+<style>
+:root{
+  --green:#2db37a;--green-dk:#1e8a5a;--green-lt:#e8f8f1;
+  --dark:#0f2d1e;--mid:#164d30;
+  --bg:#f0f7f3;--red:#e74c3c;--orange:#f39c12;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:#1a2e1a;min-height:100vh}
+
+/* LOGIN */
+#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--dark),var(--mid))}
+.login-box{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo img{height:52px}
+.login-title{font-size:18px;font-weight:700;color:var(--dark);text-align:center;margin-bottom:4px}
+.login-sub{font-size:13px;color:#888;text-align:center;margin-bottom:24px}
+.login-input{width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:10px;font-size:14px;outline:none;transition:border .15s;font-family:inherit}
+.login-input:focus{border-color:var(--green)}
+.login-btn{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px;font-family:inherit}
+.login-btn:hover{background:var(--green-dk)}
+.login-err{color:var(--red);font-size:13px;text-align:center;margin-top:10px;display:none}
+
+/* LAYOUT */
+#app{display:none;min-height:100vh}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:linear-gradient(180deg,var(--dark),var(--mid));color:#fff;display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:22px 20px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-logo img{height:36px;filter:brightness(0) invert(1);opacity:.95}
+.sidebar-platform{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1.5px;margin-top:5px}
+.sidebar-nav{flex:1;padding:14px 0;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:11px;padding:11px 20px;font-size:13px;font-weight:600;color:rgba(255,255,255,.65);cursor:pointer;transition:all .15s;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(45,179,122,.18);color:#fff;border-left-color:var(--green)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;min-width:20px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:rgba(255,255,255,.35)}
+
+.main{margin-left:220px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#fff;border-bottom:1px solid #e2ede8;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 1px 6px rgba(0,0,0,.05)}
+.topbar-title{font-size:17px;font-weight:700;color:var(--dark)}
+.btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:var(--green-dk)}
+.btn-outline{background:#fff;color:var(--dark);border:1.5px solid #cde3d5}.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-icon{background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px}
+.btn-icon:hover{background:#f0f0f0}
+.content{flex:1;padding:26px 28px}
+
+/* PANELS */
+.panel{display:none}.panel.active{display:block}
+
+/* STATS */
+.stats-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:12px;padding:16px 18px;border:1px solid #ddefea}
+.stat-num{font-size:28px;font-weight:800;color:var(--dark)}
+.stat-lbl{font-size:12px;color:#888;margin-top:3px}
+.stat-num.green{color:var(--green)}.stat-num.orange{color:var(--orange)}.stat-num.red{color:var(--red)}
+
+/* TABLE */
+.table-wrap{background:#fff;border-radius:14px;border:1px solid #ddefea;overflow:hidden;margin-bottom:22px}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #edf5f0}
+.table-header h3{font-size:15px;font-weight:700;color:var(--dark)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#f7fbf9;padding:10px 14px;text-align:left;font-weight:700;color:#456054;border-bottom:1px solid #e8f3ec;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+tbody tr{border-bottom:1px solid #f0f7f3;transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#fafffe}
+tbody td{padding:10px 14px;color:#334;vertical-align:middle}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.badge-new{background:#fff3e0;color:#e67e22}
+.badge-done{background:#e8f8f1;color:var(--green-dk)}
+.badge-rej{background:#fdecea;color:var(--red)}
+.badge-active{background:var(--green-lt);color:var(--green-dk)}
+.badge-off{background:#f5f5f5;color:#aaa}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:28px;position:relative}
+.modal-close{position:absolute;top:12px;right:16px;font-size:24px;cursor:pointer;color:#aaa;background:none;border:none;line-height:1}
+.modal h2{font-size:18px;font-weight:700;color:var(--dark);margin-bottom:18px}
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:12px;font-weight:700;color:#556;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+.form-row input,.form-row textarea,.form-row select{width:100%;padding:9px 12px;border:1.5px solid #d5e8dc;border-radius:8px;font-size:13px;outline:none;transition:border .15s;font-family:inherit;background:#fff}
+.form-row input:focus,.form-row textarea:focus,.form-row select:focus{border-color:var(--green)}
+.form-row textarea{min-height:80px;resize:vertical}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-hint{font-size:11px;color:#999;margin-top:3px}
+.img-upload-area{border:2px dashed #c5dfd0;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#fafff9}
+.img-upload-area:hover{border-color:var(--green);background:var(--green-lt)}
+.img-upload-area input{display:none}
+.img-preview{max-width:100%;max-height:120px;border-radius:8px;margin:8px auto 0;display:block;object-fit:contain}
+
+/* SUBMISSION DETAIL */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.detail-item label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green-dk);display:block;margin-bottom:2px}
+.detail-item p{font-size:13px;color:#333;background:#f7fbf9;border-radius:6px;padding:6px 10px}
+.detail-item.full{grid-column:1/-1}
+
+/* FILTERS */
+.filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filters select,.filters input{padding:7px 12px;border:1.5px solid #d5e8dc;border-radius:8px;font-size:13px;outline:none;font-family:inherit;background:#fff}
+.filter-count{font-size:12px;color:#888;margin-left:auto}
+
+/* ASSIGN */
+.assign-list{max-height:300px;overflow-y:auto;border:1.5px solid #d5e8dc;border-radius:8px}
+.assign-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f7f2;font-size:13px}
+.assign-item:last-child{border-bottom:none}
+.assign-item input[type=number]{width:70px;padding:4px 8px;border:1.5px solid #c5dfd0;border-radius:6px;text-align:center;font-size:12px;outline:none}
+.assign-check{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
+
+.empty{text-align:center;padding:50px 20px;color:#aaa}
+.empty .empty-icon{font-size:48px;margin-bottom:12px}
+
+@media(max-width:800px){
+  .sidebar{width:60px}
+  .nav-item span,.nav-badge,.sidebar-logo img,.sidebar-platform,.sidebar-footer{display:none}
+  .nav-item{padding:12px;justify-content:center}
+  .main{margin-left:60px}
+  .form-2col,.detail-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="data:image/png;base64,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" alt="Welease"/>
+    </div>
+    <div class="login-title">Bike Platform</div>
+    <div class="login-sub">Beheer van fietsen, klanten & aanvragen</div>
+    <input class="login-input" type="password" id="login-key" placeholder="Admin sleutel"/>
+    <button class="login-btn" onclick="doLogin()">Inloggen</button>
+    <div class="login-err" id="login-err">Verkeerde sleutel</div>
+  </div>
+</div>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <img src="data:image/png;base64,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" alt="Welease"/>
+      <div class="sidebar-platform">Bike Platform</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="showPanel('dashboard')" id="nav-dashboard"><span class="nav-icon">📊</span><span>Dashboard</span></div>
+      <div class="nav-item" onclick="showPanel('submissions')" id="nav-submissions"><span class="nav-icon">📥</span><span>Aanvragen</span><span class="nav-badge" id="new-badge" style="display:none">0</span></div>
+      <div class="nav-item" onclick="showPanel('bikes')" id="nav-bikes"><span class="nav-icon">🚲</span><span>Fietsen</span></div>
+      <div class="nav-item" onclick="showPanel('clients')" id="nav-clients"><span class="nav-icon">🏢</span><span>Klanten</span></div>
+    </nav>
+    <div class="sidebar-footer">Welease Bike Platform v2</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div><button class="btn btn-outline btn-sm" onclick="logout()">Uitloggen</button></div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="panel active" id="panel-dashboard">
+        <div class="stats-strip">
+          <div class="stat-card"><div class="stat-num" id="ds-total">–</div><div class="stat-lbl">Totaal aanvragen</div></div>
+          <div class="stat-card"><div class="stat-num orange" id="ds-new">–</div><div class="stat-lbl">Nieuw</div></div>
+          <div class="stat-card"><div class="stat-num green" id="ds-done">–</div><div class="stat-lbl">Behandeld</div></div>
+          <div class="stat-card"><div class="stat-num" id="ds-bikes">–</div><div class="stat-lbl">Fietsen</div></div>
+          <div class="stat-card"><div class="stat-num" id="ds-clients">–</div><div class="stat-lbl">Klanten</div></div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header"><h3>Recente aanvragen</h3><button class="btn btn-outline btn-sm" onclick="showPanel('submissions')">Alle →</button></div>
+          <table><thead><tr><th>Naam</th><th>Fiets</th><th>Klant</th><th>Winkel</th><th>Datum</th><th>Status</th></tr></thead><tbody id="recent-subs"></tbody></table>
+        </div>
+      </div>
+
+      <!-- SUBMISSIONS -->
+      <div class="panel" id="panel-submissions">
+        <div class="filters">
+          <select id="filter-client" onchange="filterSubs()"><option value="">Alle klanten</option></select>
+          <select id="filter-status" onchange="filterSubs()">
+            <option value="">Alle statussen</option><option value="nieuw">Nieuw</option>
+            <option value="behandeld">Behandeld</option><option value="afgewezen">Afgewezen</option>
+          </select>
+          <input id="filter-search" placeholder="Zoek naam / fiets..." oninput="filterSubs()" style="min-width:180px"/>
+          <span class="filter-count" id="sub-count"></span>
+          <button class="btn btn-outline btn-sm" onclick="loadSubmissions()">↺</button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Datum</th><th>Naam</th><th>Fiets</th><th>Maat</th><th>Winkel</th><th>Klant</th><th>Status</th><th></th></tr></thead><tbody id="subs-table"></tbody></table>
+          <div class="empty" id="subs-empty" style="display:none"><div class="empty-icon">📭</div><p>Nog geen aanvragen</p></div>
+        </div>
+      </div>
+
+      <!-- BIKES -->
+      <div class="panel" id="panel-bikes">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn btn-green" onclick="openBikeModal()">+ Nieuwe fiets</button></div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Foto</th><th>Merk</th><th>Model</th><th>Prijs</th><th>Type</th><th>Maten</th><th></th></tr></thead><tbody id="bikes-table"></tbody></table>
+          <div class="empty" id="bikes-empty" style="display:none"><div class="empty-icon">🚲</div><p>Nog geen fietsen</p></div>
+        </div>
+      </div>
+
+      <!-- CLIENTS -->
+      <div class="panel" id="panel-clients">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn btn-green" onclick="openClientModal()">+ Nieuwe klant</button></div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Naam</th><th>Slug</th><th>Kleur</th><th>Talen</th><th>Status</th><th></th></tr></thead><tbody id="clients-table"></tbody></table>
+          <div class="empty" id="clients-empty" style="display:none"><div class="empty-icon">🏢</div><p>Nog geen klanten</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BIKE MODAL -->
+<div class="modal-overlay" id="bike-modal"><div class="modal">
+  <button class="modal-close" onclick="closeBikeModal()">×</button>
+  <h2 id="bike-modal-title">Fiets toevoegen</h2>
+  <div class="form-2col">
+    <div class="form-row"><label>Merk *</label><input id="b-brand" placeholder="Gazelle"/></div>
+    <div class="form-row"><label>Model *</label><input id="b-model" placeholder="Eclipse"/></div>
+  </div>
+  <div class="form-2col">
+    <div class="form-row"><label>Prijs (€) *</label><input id="b-price" type="number"/></div>
+    <div class="form-row"><label>Maten (komma)</label><input id="b-sizes" placeholder="S,M,L,XL"/></div>
+  </div>
+  <div class="form-2col">
+    <div class="form-row"><label>Type NL</label><input id="b-type-nl"/></div>
+    <div class="form-row"><label>Type FR</label><input id="b-type-fr"/></div>
+  </div>
+  <div class="form-row"><label>Omschrijving NL</label><textarea id="b-desc-nl"></textarea></div>
+  <div class="form-row"><label>Omschrijving FR</label><textarea id="b-desc-fr"></textarea></div>
+  <div class="form-row"><label>Omschrijving EN</label><textarea id="b-desc-en"></textarea></div>
+  <div class="form-row" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="b-motor" style="width:16px;height:16px;accent-color:var(--green)"/><label style="margin:0;text-transform:none;font-size:13px;font-weight:600">E-Motor badge</label></div>
+  <div class="form-row"><label>Foto</label>
+    <div class="img-upload-area" onclick="document.getElementById('b-img-input').click()">
+      <input type="file" id="b-img-input" accept="image/*" onchange="handleImg('b-img-input','b-img-preview','b-img-data','b-img-ph')"/>
+      <div id="b-img-ph">📷 Klik om foto te uploaden</div>
+      <img id="b-img-preview" class="img-preview" style="display:none"/>
+    </div>
+    <input type="hidden" id="b-img-data"/>
+  </div>
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+    <button class="btn btn-outline" onclick="closeBikeModal()">Annuleren</button>
+    <button class="btn btn-green" onclick="saveBike()">Opslaan</button>
+  </div>
+</div></div>
+
+<!-- CLIENT MODAL -->
+<div class="modal-overlay" id="client-modal"><div class="modal" style="max-width:600px">
+  <button class="modal-close" onclick="closeClientModal()">×</button>
+  <h2 id="client-modal-title">Klant toevoegen</h2>
+  <div class="form-2col">
+    <div class="form-row"><label>Naam *</label><input id="c-name"/></div>
+    <div class="form-row"><label>Slug *</label><input id="c-slug"/><div class="form-hint">Unieke ID, kleine letters</div></div>
+  </div>
+  <div class="form-2col">
+    <div class="form-row"><label>Primaire kleur</label><input id="c-color" type="color" value="#2d8f4e" style="height:38px;padding:4px"/></div>
+    <div class="form-row"><label>Donkere kleur</label><input id="c-dark" type="color" value="#0f2d1e" style="height:38px;padding:4px"/></div>
+  </div>
+  <div class="form-row"><label>Contact e-mail</label><input id="c-email" type="email"/></div>
+  <div class="form-row"><label>Logo HTML</label><textarea id="c-logo" placeholder='<img src="..." height="40"/>&#10;of inline SVG'></textarea></div>
+  <div class="form-row"><label>Talen</label>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+      <label style="text-transform:none;font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="lang-nl" checked style="accent-color:var(--green)"/>🇧🇪 NL</label>
+      <label style="text-transform:none;font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="lang-fr" style="accent-color:var(--green)"/>🇫🇷 FR</label>
+      <label style="text-transform:none;font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="lang-en" style="accent-color:var(--green)"/>🇬🇧 EN</label>
+      <label style="text-transform:none;font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="lang-tr" style="accent-color:var(--green)"/>🇹🇷 TR</label>
+      <label style="text-transform:none;font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="lang-ru" style="accent-color:var(--green)"/>🇷🇺 RU</label>
+    </div>
+  </div>
+  <div class="form-row" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="c-active" checked style="width:16px;height:16px;accent-color:var(--green)"/><label style="margin:0;text-transform:none;font-size:13px;font-weight:600">Klant actief</label></div>
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+    <button class="btn btn-outline" onclick="closeClientModal()">Annuleren</button>
+    <button class="btn btn-green" onclick="saveClient()">Opslaan</button>
+    <button class="btn btn-outline" id="btn-config" style="display:none" onclick="openConfig()">⚙ Fietsen & Winkels →</button>
+  </div>
+</div></div>
+
+<!-- CONFIG MODAL -->
+<div class="modal-overlay" id="config-modal"><div class="modal" style="max-width:680px">
+  <button class="modal-close" onclick="document.getElementById('config-modal').classList.remove('open')">×</button>
+  <h2 id="config-title">Configuratie</h2>
+  <div style="display:flex;gap:10px;margin-bottom:16px">
+    <button class="btn btn-sm btn-green" id="cfg-tab-bikes" onclick="cfgTab('bikes')">🚲 Fietsen</button>
+    <button class="btn btn-outline btn-sm" id="cfg-tab-stores" onclick="cfgTab('stores')">📍 Winkels</button>
+  </div>
+  <div id="cfg-bikes">
+    <p style="font-size:13px;color:#888;margin-bottom:10px">Aanvinken = toegewezen. Stel kortingspercentage in.</p>
+    <div class="assign-list" id="assign-list"></div>
+    <button class="btn btn-green" style="margin-top:12px;width:100%" onclick="saveBikeAssignments()">Fietsen opslaan</button>
+  </div>
+  <div id="cfg-stores" style="display:none">
+    <button class="btn btn-green btn-sm" style="margin-bottom:12px" onclick="openStoreForm()">+ Winkel toevoegen</button>
+    <div id="stores-list"></div>
+  </div>
+</div></div>
+
+<!-- STORE MODAL -->
+<div class="modal-overlay" id="store-modal"><div class="modal" style="max-width:460px">
+  <button class="modal-close" onclick="document.getElementById('store-modal').classList.remove('open')">×</button>
+  <h2 id="store-modal-title">Winkel toevoegen</h2>
+  <div class="form-2col">
+    <div class="form-row"><label>Stad *</label><input id="s-city"/></div>
+    <div class="form-row"><label>Naam</label><input id="s-name"/></div>
+  </div>
+  <div class="form-row"><label>Adres</label><input id="s-address"/></div>
+  <div class="form-2col">
+    <div class="form-row"><label>Telefoon</label><input id="s-phone"/></div>
+    <div class="form-row"><label>E-mail winkel</label><input id="s-email" type="email"/></div>
+  </div>
+  <div class="form-row"><label>Notitie</label><input id="s-note"/></div>
+  <div class="form-row"><label>Foto</label>
+    <div class="img-upload-area" onclick="document.getElementById('s-img-input').click()">
+      <input type="file" id="s-img-input" accept="image/*" onchange="handleImg('s-img-input','s-img-preview','s-img-data','s-img-ph')"/>
+      <div id="s-img-ph">📷 Klik om foto te uploaden</div>
+      <img id="s-img-preview" class="img-preview" style="display:none"/>
+    </div>
+    <input type="hidden" id="s-img-data"/>
+  </div>
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+    <button class="btn btn-outline" onclick="document.getElementById('store-modal').classList.remove('open')">Annuleren</button>
+    <button class="btn btn-green" onclick="saveStore()">Opslaan</button>
+  </div>
+</div></div>
+
+<!-- SUBMISSION DETAIL -->
+<div class="modal-overlay" id="sub-modal"><div class="modal" style="max-width:540px">
+  <button class="modal-close" onclick="document.getElementById('sub-modal').classList.remove('open')">×</button>
+  <h2>Aanvraagdetail</h2>
+  <div class="detail-grid" id="sub-detail-grid"></div>
+  <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+    <button class="btn btn-green btn-sm" onclick="setSubStatus('behandeld')">✓ Behandeld</button>
+    <button class="btn btn-sm" style="background:var(--orange);color:#fff" onclick="setSubStatus('nieuw')">↺ Nieuw</button>
+    <button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="setSubStatus('afgewezen')">✗ Afwijzen</button>
+    <button class="btn btn-outline btn-sm" onclick="deleteCurrentSub()" style="margin-left:auto;color:var(--red);border-color:var(--red)">🗑</button>
+  </div>
+</div></div>
+
+<script>
+const API=''; let apiKey='';
+let allBikes=[],allClients=[],allSubmissions=[];
+let editBikeId=null,editClientId=null,editStoreId=null,configClientId=null,currentSubId=null;
+
+async function doLogin(){
+  const key=document.getElementById('login-key').value.trim();
+  try{
+    const r=await fetch(`${API}/api/auth/verify`,{headers:{'x-api-key':key}});
+    if(!r.ok) throw 0;
+    apiKey=key;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    loadAll();
+  }catch{ document.getElementById('login-err').style.display='block'; }
+}
+function logout(){ apiKey=''; document.getElementById('app').style.display='none'; document.getElementById('login-screen').style.display='flex'; }
+document.getElementById('login-key').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+
+async function api(method,path,body=null){
+  const opts={method,headers:{'x-api-key':apiKey,'Content-Type':'application/json'}};
+  if(body) opts.body=JSON.stringify(body);
+  const r=await fetch(API+path,opts);
+  if(!r.ok){ const t=await r.text(); throw new Error(t); }
+  return r.json();
+}
+
+async function loadAll(){ await Promise.all([loadBikes(),loadClients(),loadSubmissions()]); }
+
+async function loadBikes(){ allBikes=await api('GET','/api/admin/bikes'); renderBikesTable(); document.getElementById('ds-bikes').textContent=allBikes.length; }
+async function loadClients(){
+  allClients=await api('GET','/api/admin/clients'); renderClientsTable();
+  document.getElementById('ds-clients').textContent=allClients.filter(c=>c.active).length;
+  const sel=document.getElementById('filter-client');
+  sel.innerHTML='<option value="">Alle klanten</option>'+allClients.map(c=>`<option value="${c.slug}">${c.name}</option>`).join('');
+}
+async function loadSubmissions(){
+  allSubmissions=await api('GET','/api/admin/submissions');
+  filterSubs();
+  try{
+    const s=await api('GET','/api/admin/submissions/stats');
+    document.getElementById('ds-total').textContent=s.total;
+    document.getElementById('ds-new').textContent=s.new;
+    document.getElementById('ds-done').textContent=s.done;
+    const nb=document.getElementById('new-badge');
+    nb.textContent=s.new; nb.style.display=s.new>0?'':'none';
+    renderRecentSubs(allSubmissions.slice(0,8));
+  }catch{}
+}
+
+function showPanel(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  const t={dashboard:'Dashboard',submissions:'Aanvragen',bikes:'Fietsen',clients:'Klanten'};
+  document.getElementById('topbar-title').textContent=t[name]||'';
+  if(name==='submissions') loadSubmissions();
+}
+
+function handleImg(inputId,previewId,dataId,phId){
+  const file=document.getElementById(inputId).files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      const max=900; let w=img.width,h=img.height;
+      if(w>max){h=h*max/w;w=max;} if(h>max){w=w*max/h;h=max;}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const data=canvas.toDataURL('image/jpeg',.8);
+      document.getElementById(dataId).value=data;
+      const pv=document.getElementById(previewId);
+      pv.src=data;pv.style.display='block';
+      document.getElementById(phId).style.display='none';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* BIKES */
+function renderBikesTable(){
+  const tb=document.getElementById('bikes-table'),em=document.getElementById('bikes-empty');
+  if(!allBikes.length){tb.innerHTML='';em.style.display='block';return;} em.style.display='none';
+  tb.innerHTML=allBikes.map(b=>`<tr>
+    <td>${b.img?`<img src="${b.img}" style="height:40px;width:60px;object-fit:contain;border-radius:4px;background:#f5f5f5"/>`:'🚲'}</td>
+    <td><strong>${b.brand}</strong></td><td>${b.model}</td>
+    <td>€ ${Number(b.price_orig).toLocaleString('nl-BE')}</td>
+    <td>${b.type_nl||'–'}</td>
+    <td style="font-size:11px">${(Array.isArray(b.sizes)?b.sizes:b.sizes||'').toString()||'–'}</td>
+    <td><button class="btn-icon" onclick="openBikeModal(${b.id})">✏️</button><button class="btn-icon" onclick="deleteBike(${b.id})">🗑</button></td>
+  </tr>`).join('');
+}
+function openBikeModal(id=null){
+  editBikeId=id;
+  document.getElementById('bike-modal-title').textContent=id?'Fiets bewerken':'Fiets toevoegen';
+  ['b-brand','b-model','b-price','b-sizes','b-type-nl','b-type-fr','b-desc-nl','b-desc-fr','b-desc-en','b-img-data'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('b-motor').checked=false;
+  document.getElementById('b-img-preview').style.display='none';
+  document.getElementById('b-img-ph').style.display='block';
+  if(id){
+    const b=allBikes.find(x=>x.id===id); if(!b) return;
+    document.getElementById('b-brand').value=b.brand;
+    document.getElementById('b-model').value=b.model;
+    document.getElementById('b-price').value=b.price_orig;
+    document.getElementById('b-sizes').value=(Array.isArray(b.sizes)?b.sizes:b.sizes||'').toString();
+    document.getElementById('b-type-nl').value=b.type_nl||'';
+    document.getElementById('b-type-fr').value=b.type_fr||'';
+    document.getElementById('b-desc-nl').value=b.desc_nl||'';
+    document.getElementById('b-desc-fr').value=b.desc_fr||'';
+    document.getElementById('b-desc-en').value=b.desc_en||'';
+    document.getElementById('b-motor').checked=!!b.motor_badge;
+    if(b.img){document.getElementById('b-img-data').value=b.img;document.getElementById('b-img-preview').src=b.img;document.getElementById('b-img-preview').style.display='block';document.getElementById('b-img-ph').style.display='none';}
+  }
+  document.getElementById('bike-modal').classList.add('open');
+}
+function closeBikeModal(){document.getElementById('bike-modal').classList.remove('open');}
+async function saveBike(){
+  const brand=document.getElementById('b-brand').value.trim(),model=document.getElementById('b-model').value.trim(),price=parseFloat(document.getElementById('b-price').value);
+  if(!brand||!model||isNaN(price)){alert('Merk, model en prijs zijn verplicht.');return;}
+  const sizes=document.getElementById('b-sizes').value.trim().split(',').map(s=>s.trim()).filter(Boolean);
+  const payload={brand,model,price_orig:price,sizes,type_nl:document.getElementById('b-type-nl').value,type_fr:document.getElementById('b-type-fr').value,desc_nl:document.getElementById('b-desc-nl').value,desc_fr:document.getElementById('b-desc-fr').value,desc_en:document.getElementById('b-desc-en').value,motor_badge:document.getElementById('b-motor').checked?1:0,img:document.getElementById('b-img-data').value||null};
+  try{ if(editBikeId) await api('PUT',`/api/admin/bikes/${editBikeId}`,payload); else await api('POST','/api/admin/bikes',payload); closeBikeModal(); await loadBikes(); }catch(e){alert('Fout: '+e.message);}
+}
+async function deleteBike(id){if(!confirm('Fiets verwijderen?')) return; await api('DELETE',`/api/admin/bikes/${id}`); await loadBikes();}
+
+/* CLIENTS */
+function renderClientsTable(){
+  const tb=document.getElementById('clients-table'),em=document.getElementById('clients-empty');
+  if(!allClients.length){tb.innerHTML='';em.style.display='block';return;} em.style.display='none';
+  tb.innerHTML=allClients.map(c=>`<tr>
+    <td><strong>${c.name}</strong></td>
+    <td><code style="font-size:11px;background:#f0f0f0;padding:2px 6px;border-radius:4px">${c.slug}</code></td>
+    <td><span style="display:inline-block;width:18px;height:18px;border-radius:4px;background:${c.primary_color};border:1px solid #ddd;vertical-align:middle"></span></td>
+    <td style="font-size:11px">${(Array.isArray(c.languages)?c.languages:JSON.parse(c.languages||'["nl"]')).join(', ')}</td>
+    <td><span class="badge ${c.active?'badge-active':'badge-off'}">${c.active?'Actief':'Inactief'}</span></td>
+    <td><button class="btn-icon" onclick="openClientModal(${c.id})">✏️</button><button class="btn-icon" onclick="openConfigById(${c.id})">⚙️</button><button class="btn-icon" onclick="deleteClient(${c.id})">🗑</button></td>
+  </tr>`).join('');
+}
+function openClientModal(id=null){
+  editClientId=id;
+  document.getElementById('client-modal-title').textContent=id?'Klant bewerken':'Klant toevoegen';
+  ['c-name','c-slug','c-email','c-logo'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('c-color').value='#2d8f4e';document.getElementById('c-dark').value='#0f2d1e';
+  ['nl','fr','en','tr','ru'].forEach(l=>document.getElementById('lang-'+l).checked=l==='nl');
+  document.getElementById('c-active').checked=true;document.getElementById('btn-config').style.display='none';
+  if(id){
+    const c=allClients.find(x=>x.id===id); if(!c) return;
+    document.getElementById('c-name').value=c.name;document.getElementById('c-slug').value=c.slug;
+    document.getElementById('c-email').value=c.contact_email||'';document.getElementById('c-logo').value=c.logo_html||'';
+    document.getElementById('c-color').value=c.primary_color||'#2d8f4e';document.getElementById('c-dark').value=c.dark_color||'#0f2d1e';
+    document.getElementById('c-active').checked=!!c.active;
+    const langs=Array.isArray(c.languages)?c.languages:JSON.parse(c.languages||'["nl"]');
+    ['nl','fr','en','tr','ru'].forEach(l=>document.getElementById('lang-'+l).checked=langs.includes(l));
+    document.getElementById('btn-config').style.display='';
+  }
+  document.getElementById('client-modal').classList.add('open');
+}
+function closeClientModal(){document.getElementById('client-modal').classList.remove('open');}
+async function saveClient(){
+  const name=document.getElementById('c-name').value.trim(),slug=document.getElementById('c-slug').value.trim().toLowerCase().replace(/\s+/g,'-');
+  if(!name||!slug){alert('Naam en slug zijn verplicht.');return;}
+  const langs=['nl','fr','en','tr','ru'].filter(l=>document.getElementById('lang-'+l).checked);
+  const payload={name,slug,logo_html:document.getElementById('c-logo').value,primary_color:document.getElementById('c-color').value,dark_color:document.getElementById('c-dark').value,contact_email:document.getElementById('c-email').value,languages:langs,active:document.getElementById('c-active').checked?1:0};
+  try{
+    if(editClientId) await api('PUT',`/api/admin/clients/${editClientId}`,payload);
+    else{const nc=await api('POST','/api/admin/clients',payload);editClientId=nc.id;}
+    document.getElementById('btn-config').style.display='';
+    await loadClients();
+  }catch(e){alert('Fout: '+e.message);}
+}
+function openConfig(){closeClientModal();openConfigById(editClientId);}
+async function deleteClient(id){if(!confirm('Klant verwijderen?')) return; await api('DELETE',`/api/admin/clients/${id}`); await loadClients();}
+
+/* CONFIG */
+async function openConfigById(clientId){
+  configClientId=clientId;
+  const c=allClients.find(x=>x.id===clientId);
+  document.getElementById('config-title').textContent=`Configuratie – ${c?.name||clientId}`;
+  document.getElementById('config-modal').classList.add('open');
+  cfgTab('bikes');
+}
+function cfgTab(tab){
+  document.getElementById('cfg-bikes').style.display=tab==='bikes'?'':'none';
+  document.getElementById('cfg-stores').style.display=tab==='stores'?'':'none';
+  document.getElementById('cfg-tab-bikes').className='btn btn-sm '+(tab==='bikes'?'btn-green':'btn-outline');
+  document.getElementById('cfg-tab-stores').className='btn btn-sm '+(tab==='stores'?'btn-green':'btn-outline');
+  if(tab==='bikes') loadConfigBikes();
+  if(tab==='stores') loadConfigStores();
+}
+async function loadConfigBikes(){
+  const assigned=await api('GET',`/api/admin/clients/${configClientId}/bikes`);
+  const discounts={}; assigned.forEach(b=>discounts[b.id]=b.discount_percent);
+  const ids=assigned.map(b=>b.id);
+  document.getElementById('assign-list').innerHTML=allBikes.map(b=>`
+    <div class="assign-item">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;flex:1">
+        <input type="checkbox" class="assign-check" id="assign-${b.id}" ${ids.includes(b.id)?'checked':''}/>
+        ${b.brand} ${b.model} <span style="color:#aaa;font-size:11px">€${Number(b.price_orig).toLocaleString('nl-BE')}</span>
+      </label>
+      <div style="display:flex;align-items:center;gap:5px;font-size:12px">
+        <input type="number" id="disc-${b.id}" value="${discounts[b.id]||0}" min="0" max="100" step="0.5"/> %
+      </div>
+    </div>`).join('');
+}
+async function saveBikeAssignments(){
+  for(const b of allBikes){
+    const checked=document.getElementById(`assign-${b.id}`)?.checked;
+    const disc=parseFloat(document.getElementById(`disc-${b.id}`).value)||0;
+    if(checked) await api('POST',`/api/admin/clients/${configClientId}/bikes`,{bike_id:b.id,discount_percent:disc});
+    else{try{await api('DELETE',`/api/admin/clients/${configClientId}/bikes/${b.id}`);}catch{}}
+  }
+  alert('Fietsen opgeslagen!');
+}
+async function loadConfigStores(){
+  const stores=await api('GET',`/api/admin/clients/${configClientId}/stores`);
+  const sl=document.getElementById('stores-list');
+  if(!stores.length){sl.innerHTML='<div class="empty" style="padding:24px"><div class="empty-icon">📍</div><p>Nog geen winkels</p></div>';return;}
+  sl.innerHTML=stores.map(s=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #eee;font-size:13px">
+      ${s.img?`<img src="${s.img}" style="width:48px;height:36px;object-fit:cover;border-radius:6px"/>`:'<span style="font-size:24px">🏪</span>'}
+      <div style="flex:1"><strong>${s.name||s.city}</strong><br/><span style="color:#888;font-size:11px">${s.address||''}</span>${s.email?`<br/><span style="font-size:11px;color:var(--green)">${s.email}</span>`:''}
+      </div>
+      <button class="btn-icon" onclick="openStoreForm(${s.id})">✏️</button>
+      <button class="btn-icon" onclick="deleteStore(${s.id})">🗑</button>
+    </div>`).join('');
+}
+function openStoreForm(storeId=null){
+  editStoreId=storeId;
+  document.getElementById('store-modal-title').textContent=storeId?'Winkel bewerken':'Winkel toevoegen';
+  ['s-city','s-name','s-address','s-phone','s-email','s-note','s-img-data'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('s-img-preview').style.display='none';document.getElementById('s-img-ph').style.display='block';
+  if(storeId){
+    api('GET',`/api/admin/clients/${configClientId}/stores`).then(stores=>{
+      const s=stores.find(x=>x.id===storeId); if(!s) return;
+      ['city','name','address','phone','email','note'].forEach(k=>document.getElementById('s-'+k).value=s[k]||'');
+      if(s.img){document.getElementById('s-img-data').value=s.img;document.getElementById('s-img-preview').src=s.img;document.getElementById('s-img-preview').style.display='block';document.getElementById('s-img-ph').style.display='none';}
+    });
+  }
+  document.getElementById('store-modal').classList.add('open');
+}
+async function saveStore(){
+  const city=document.getElementById('s-city').value.trim(); if(!city){alert('Stad is verplicht.');return;}
+  const payload={city,name:document.getElementById('s-name').value,address:document.getElementById('s-address').value,phone:document.getElementById('s-phone').value,email:document.getElementById('s-email').value,note:document.getElementById('s-note').value,img:document.getElementById('s-img-data').value||null};
+  if(editStoreId) await api('PUT',`/api/admin/clients/${configClientId}/stores/${editStoreId}`,payload);
+  else await api('POST',`/api/admin/clients/${configClientId}/stores`,payload);
+  document.getElementById('store-modal').classList.remove('open'); loadConfigStores();
+}
+async function deleteStore(id){if(!confirm('Winkel verwijderen?')) return; await api('DELETE',`/api/admin/clients/${configClientId}/stores/${id}`); loadConfigStores();}
+
+/* SUBMISSIONS */
+function filterSubs(){
+  const cf=document.getElementById('filter-client').value,sf=document.getElementById('filter-status').value,qf=document.getElementById('filter-search').value.toLowerCase();
+  const f=allSubmissions.filter(s=>{
+    if(cf&&s.client_slug!==cf) return false;
+    if(sf&&s.status!==sf) return false;
+    if(qf&&!`${s.voornaam} ${s.achternaam} ${s.bike_brand} ${s.bike_model}`.toLowerCase().includes(qf)) return false;
+    return true;
+  });
+  document.getElementById('sub-count').textContent=`${f.length} resultaten`;
+  renderSubsTable(f);
+}
+function statusBadge(st){
+  const m={nieuw:'badge-new',behandeld:'badge-done',afgewezen:'badge-rej'};
+  const l={nieuw:'Nieuw',behandeld:'Behandeld',afgewezen:'Afgewezen'};
+  return `<span class="badge ${m[st]||'badge-new'}">${l[st]||st}</span>`;
+}
+function renderRecentSubs(subs){
+  const tb=document.getElementById('recent-subs');
+  if(!subs.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">Nog geen aanvragen</td></tr>';return;}
+  tb.innerHTML=subs.map(s=>`<tr style="cursor:pointer" onclick="openSubDetail(${s.id})"><td>${s.voornaam} ${s.achternaam}</td><td>${s.bike_brand} ${s.bike_model}</td><td><code style="font-size:11px">${s.client_slug}</code></td><td>${s.store_name||'–'}</td><td style="font-size:11px;color:#888">${(s.created_at||'').substring(0,10)}</td><td>${statusBadge(s.status)}</td></tr>`).join('');
+}
+function renderSubsTable(subs){
+  const tb=document.getElementById('subs-table'),em=document.getElementById('subs-empty');
+  if(!subs.length){tb.innerHTML='';em.style.display='block';return;} em.style.display='none';
+  tb.innerHTML=subs.map(s=>`<tr style="cursor:pointer" onclick="openSubDetail(${s.id})">
+    <td style="font-size:11px;color:#888;white-space:nowrap">${(s.created_at||'').substring(0,10)}</td>
+    <td><strong>${s.voornaam} ${s.achternaam}</strong></td><td>${s.bike_brand} ${s.bike_model}</td>
+    <td>${s.maat||'–'}</td><td>${s.store_name||'–'}</td>
+    <td><code style="font-size:11px">${s.client_slug}</code></td><td>${statusBadge(s.status)}</td>
+    <td><button class="btn-icon" onclick="event.stopPropagation();openSubDetail(${s.id})">👁</button></td>
+  </tr>`).join('');
+}
+function openSubDetail(id){
+  currentSubId=id; const s=allSubmissions.find(x=>x.id===id); if(!s) return;
+  const fields=[['Naam',`${s.voornaam} ${s.achternaam}`],['E-mail',s.email],['Telefoon',s.tel],['Bedrijf/Afdeling',s.bedrijf||'–'],['Fiets',`${s.bike_brand} ${s.bike_model}`],['Maat',s.maat||'–'],['Winkel',s.store_name||'–'],['Winkel e-mail',s.store_email||'–'],['Betaling',s.betaling||'–'],['Klant',s.client_slug],['Datum',s.created_at],['Opmerkingen',s.opmerking||'–',true]];
+  document.getElementById('sub-detail-grid').innerHTML=fields.map(([l,v,full])=>`<div class="detail-item${full?' full':''}"><label>${l}</label><p>${v||'–'}</p></div>`).join('');
+  document.getElementById('sub-modal').classList.add('open');
+}
+async function setSubStatus(status){if(!currentSubId) return; await api('PUT',`/api/admin/submissions/${currentSubId}`,{status}); document.getElementById('sub-modal').classList.remove('open'); await loadSubmissions();}
+async function deleteCurrentSub(){if(!currentSubId||!confirm('Aanvraag definitief verwijderen?')) return; await api('DELETE',`/api/admin/submissions/${currentSubId}`); document.getElementById('sub-modal').classList.remove('open'); await loadSubmissions();}
+
+document.querySelectorAll('.modal-overlay').forEach(ov=>ov.addEventListener('click',e=>{ if(e.target===ov) ov.classList.remove('open'); }));
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open')); });
+</script>
+</body>
+</html>
