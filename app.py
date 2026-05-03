@@ -448,6 +448,15 @@ async def get_client_config(slug: str):
     conn.close()
     return {"client": c, "bikes": bikes, "stores": [dict(s) for s in stores]}
 
+@app.get("/api/clients")
+async def list_active_clients():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT slug, name FROM clients WHERE active=1 ORDER BY name"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
