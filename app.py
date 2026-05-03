@@ -20,8 +20,8 @@ SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
 
 if USE_PG:
-    import psycopg2
-    import psycopg2.extras
+    import psycopg
+    from psycopg.rows import dict_row
 else:
     import sqlite3
 
@@ -35,7 +35,7 @@ app.add_middleware(
 # ── DB HELPERS ───────────────────────────────────────────────────────────────
 def get_db():
     if USE_PG:
-        return psycopg2.connect(DATABASE_URL)
+        return psycopg.connect(DATABASE_URL)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -43,7 +43,7 @@ def get_db():
 def _exec(conn, sql, params=()):
     """Execute sql on whichever DB is active."""
     if USE_PG:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         cur.execute(sql, params)
         return cur
     else:
@@ -59,7 +59,7 @@ def db_fetchone(conn, sql, params=()):
 def db_insert(conn, sql, params):
     """INSERT and return the new id."""
     if USE_PG:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         cur.execute(sql + " RETURNING id", params)
         conn.commit()
         return cur.fetchone()["id"]
