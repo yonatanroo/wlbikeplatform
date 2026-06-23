@@ -13,11 +13,12 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")          # Railway PostgreSQL zet d
 DB_PATH      = os.getenv("DB_PATH",      "bikes.db")  # SQLite fallback (lokale dev)
 USE_PG       = bool(DATABASE_URL)
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.office365.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASS = os.getenv("SMTP_PASS", "")
-SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
+SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.office365.com")
+SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER     = os.getenv("SMTP_USER", "")
+SMTP_PASS     = os.getenv("SMTP_PASS", "")
+SMTP_FROM     = os.getenv("SMTP_FROM", SMTP_USER)
+NOTIFY_EMAIL  = os.getenv("NOTIFY_EMAIL", "")   # bijv. info@welease.be — krijgt altijd een kopie
 
 if USE_PG:
     import psycopg
@@ -111,6 +112,7 @@ PG_SCHEMA = [
         client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
         bike_id INTEGER REFERENCES bikes(id) ON DELETE CASCADE,
         discount_percent REAL DEFAULT 0,
+        price_disc REAL DEFAULT NULL,
         UNIQUE(client_id, bike_id)
     )""",
     """CREATE TABLE IF NOT EXISTS client_stores (
@@ -125,8 +127,9 @@ PG_SCHEMA = [
         client_slug TEXT, bike_brand TEXT DEFAULT '', bike_model TEXT DEFAULT '',
         store_name TEXT DEFAULT '', store_email TEXT DEFAULT '',
         voornaam TEXT, achternaam TEXT, email TEXT, tel TEXT,
-        bedrijf TEXT DEFAULT '', maat TEXT DEFAULT '', betaling TEXT DEFAULT '',
-        opmerking TEXT DEFAULT '', lang TEXT DEFAULT 'nl', status TEXT DEFAULT 'nieuw',
+        bedrijf TEXT DEFAULT '', maat TEXT DEFAULT '', batterij TEXT DEFAULT '',
+        betaling TEXT DEFAULT '', opmerking TEXT DEFAULT '',
+        lang TEXT DEFAULT 'nl', status TEXT DEFAULT 'nieuw',
         created_at TIMESTAMP DEFAULT NOW()
     )""",
 ]
@@ -153,6 +156,7 @@ CREATE TABLE IF NOT EXISTS client_bikes (
     client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
     bike_id INTEGER REFERENCES bikes(id) ON DELETE CASCADE,
     discount_percent REAL DEFAULT 0,
+    price_disc REAL DEFAULT NULL,
     UNIQUE(client_id, bike_id)
 );
 CREATE TABLE IF NOT EXISTS client_stores (
@@ -166,7 +170,8 @@ CREATE TABLE IF NOT EXISTS submissions (
     client_slug TEXT, bike_brand TEXT, bike_model TEXT,
     store_name TEXT, store_email TEXT,
     voornaam TEXT, achternaam TEXT, email TEXT, tel TEXT,
-    bedrijf TEXT, maat TEXT, betaling TEXT, opmerking TEXT,
+    bedrijf TEXT, maat TEXT, batterij TEXT DEFAULT '',
+    betaling TEXT, opmerking TEXT,
     lang TEXT DEFAULT 'nl', status TEXT DEFAULT 'nieuw',
     created_at TEXT DEFAULT (datetime('now'))
 );
@@ -190,19 +195,36 @@ def migrate_db():
     conn = get_db()
     if USE_PG:
         cur = conn.cursor()
+        # bikes table
         cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='bikes'")
-        existing = [r[0] for r in cur.fetchall()]
-        if "motor_type" not in existing:
+        existing_bikes = [r[0] for r in cur.fetchall()]
+        if "motor_type" not in existing_bikes:
             cur.execute("ALTER TABLE bikes ADD COLUMN motor_type TEXT DEFAULT ''")
-        if "batteries" not in existing:
+        if "batteries" not in existing_bikes:
             cur.execute("ALTER TABLE bikes ADD COLUMN batteries TEXT DEFAULT '[]'")
+        # client_bikes table
+        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='client_bikes'")
+        existing_cb = [r[0] for r in cur.fetchall()]
+        if "price_disc" not in existing_cb:
+            cur.execute("ALTER TABLE client_bikes ADD COLUMN price_disc REAL DEFAULT NULL")
+        # submissions table
+        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='submissions'")
+        existing_subs = [r[0] for r in cur.fetchall()]
+        if "batterij" not in existing_subs:
+            cur.execute("ALTER TABLE submissions ADD COLUMN batterij TEXT DEFAULT ''")
         conn.commit()
     else:
-        existing = [row[1] for row in conn.execute("PRAGMA table_info(bikes)").fetchall()]
-        if "motor_type" not in existing:
+        existing_bikes = [row[1] for row in conn.execute("PRAGMA table_info(bikes)").fetchall()]
+        if "motor_type" not in existing_bikes:
             conn.execute("ALTER TABLE bikes ADD COLUMN motor_type TEXT DEFAULT ''")
-        if "batteries" not in existing:
+        if "batteries" not in existing_bikes:
             conn.execute("ALTER TABLE bikes ADD COLUMN batteries TEXT DEFAULT '[]'")
+        existing_cb = [row[1] for row in conn.execute("PRAGMA table_info(client_bikes)").fetchall()]
+        if "price_disc" not in existing_cb:
+            conn.execute("ALTER TABLE client_bikes ADD COLUMN price_disc REAL DEFAULT NULL")
+        existing_subs = [row[1] for row in conn.execute("PRAGMA table_info(submissions)").fetchall()]
+        if "batterij" not in existing_subs:
+            conn.execute("ALTER TABLE submissions ADD COLUMN batterij TEXT DEFAULT ''")
         conn.commit()
     conn.close()
 
@@ -228,7 +250,9 @@ class ClientIn(BaseModel):
     contact_email: str=""; languages: list=["nl"]; active: int=1
 
 class ClientBikeIn(BaseModel):
-    bike_id: int; discount_percent: float=0
+    bike_id: int
+    discount_percent: float = 0        # % korting — wordt genegeerd als price_disc is ingevuld
+    price_disc: Optional[float] = None  # Vaste prijs in € na korting — overschrijft discount_percent
 
 class StoreIn(BaseModel):
     city: str; name: str=""; address: str=""; phone: str=""
@@ -239,8 +263,8 @@ class SubmissionIn(BaseModel):
     bike_brand: str=""; bike_model: str=""
     store_name: str=""; store_email: str=""
     voornaam: str; achternaam: str; email: str; tel: str
-    bedrijf: str=""; maat: str=""; betaling: str=""; opmerking: str=""
-    lang: str="nl"
+    bedrijf: str=""; maat: str=""; batterij: str=""
+    betaling: str=""; opmerking: str=""; lang: str="nl"
 
 class SubmissionStatus(BaseModel):
     status: str
@@ -268,42 +292,61 @@ def send_email(to: str, subject: str, body_html: str):
     except Exception as e:
         print(f"[EMAIL] Fout bij versturen naar {to}: {e}")
 
-def build_email_html(sub: SubmissionIn) -> str:
+def build_email_html(sub: SubmissionIn, is_copy: bool = False) -> str:
     rows = [
         ("Voornaam",         sub.voornaam),
         ("Achternaam",       sub.achternaam),
-        ("E-mail",           sub.email),
-        ("Telefoon",         sub.tel),
+        ("E-mail",           f'<a href="mailto:{sub.email}" style="color:#2db37a">{sub.email}</a>'),
+        ("Telefoon",         f'<a href="tel:{sub.tel}" style="color:#2db37a">{sub.tel}</a>'),
         ("Bedrijf/Afdeling", sub.bedrijf or "–"),
-        ("Fiets",            f"{sub.bike_brand} {sub.bike_model}"),
+        ("Fiets",            f"<strong>{sub.bike_brand} {sub.bike_model}</strong>"),
         ("Maat",             sub.maat or "–"),
-        ("Gewenste winkel",  sub.store_name or "–"),
+        ("Batterij",         sub.batterij or "–"),
         ("Betaling",         sub.betaling or "–"),
+        ("Gewenste winkel",  sub.store_name or "–"),
+        ("Winkel e-mail",    sub.store_email or "–"),
         ("Klant (slug)",     sub.client_slug),
+        ("Taal",             sub.lang),
         ("Opmerkingen",      sub.opmerking or "–"),
     ]
     rows_html = "".join(
-        f"<tr><td style='padding:8px 12px;font-weight:600;color:#456;background:#f7fbf9;white-space:nowrap'>{k}</td>"
-        f"<td style='padding:8px 12px;color:#222'>{v}</td></tr>"
+        f"<tr><td style='padding:8px 14px;font-weight:700;color:#555;background:#f7fbf9;"
+        f"white-space:nowrap;font-size:13px;border-bottom:1px solid #e8f3ee'>{k}</td>"
+        f"<td style='padding:8px 14px;color:#222;font-size:13px;border-bottom:1px solid #e8f3ee'>{v}</td></tr>"
         for k, v in rows
     )
+    copy_banner = (
+        f"<div style='background:#fff8e0;border:1px solid #f0d060;border-radius:8px;"
+        f"padding:10px 14px;margin-bottom:16px;font-size:12px;color:#886600'>"
+        f"📋 Dit is een interne kopie — het origineel werd verstuurd naar <strong>{sub.store_email}</strong></div>"
+        if is_copy else ""
+    )
     return f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
-      <div style="background:#2db37a;padding:20px 28px;border-radius:12px 12px 0 0">
-        <h2 style="color:#fff;margin:0;font-size:20px">🚲 Nieuwe fietsaanvraag</h2>
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+      <div style="background:linear-gradient(135deg,#1a8f5a,#2db37a);padding:24px 28px">
+        <h2 style="color:#fff;margin:0;font-size:22px">🚲 Nieuwe fietsaanvraag</h2>
         <p style="color:rgba(255,255,255,.85);margin:6px 0 0;font-size:13px">
-          Via het Welease Bike Platform – klant: <strong>{sub.client_slug}</strong>
+          Via het Welease Bike Platform &nbsp;·&nbsp; klant: <strong>{sub.client_slug}</strong>
         </p>
       </div>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #ddefea;border-top:none">
-        {rows_html}
-      </table>
-      <p style="font-size:11px;color:#aaa;margin-top:14px;text-align:center">
-        Welease Bike Platform · Beheer via
-        <a href="https://web-production-44ea4.up.railway.app" style="color:#2db37a">
-          web-production-44ea4.up.railway.app
-        </a>
-      </p>
+      <div style="padding:20px 24px">
+        {copy_banner}
+        <table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e0eeea">
+          {rows_html}
+        </table>
+        <div style="margin-top:20px;padding:14px 16px;background:#f0faf5;border-radius:8px;border-left:4px solid #2db37a">
+          <p style="margin:0;font-size:13px;color:#2a6a48;font-weight:600">Volgende stap</p>
+          <p style="margin:4px 0 0;font-size:12px;color:#555">Neem zo snel mogelijk contact op met de klant via e-mail of telefoon om een afspraak te plannen.</p>
+        </div>
+      </div>
+      <div style="background:#f7f7f7;padding:12px 24px;text-align:center;border-top:1px solid #eee">
+        <p style="font-size:11px;color:#aaa;margin:0">
+          Welease Bike Platform &nbsp;·&nbsp;
+          <a href="https://web-production-44ea4.up.railway.app" style="color:#2db37a;text-decoration:none">
+            Beheer aanvragen
+          </a>
+        </p>
+      </div>
     </div>"""
 
 # ── STATIC ───────────────────────────────────────────────────────────────────
@@ -442,21 +485,21 @@ async def assign_bike(client_id: int, cb: ClientBikeIn, auth=Depends(require_adm
     conn = get_db()
     try:
         db_insert(conn,
-            "INSERT INTO client_bikes (client_id,bike_id,discount_percent) VALUES (%s,%s,%s)",
-            (client_id, cb.bike_id, cb.discount_percent))
+            "INSERT INTO client_bikes (client_id,bike_id,discount_percent,price_disc) VALUES (%s,%s,%s,%s)",
+            (client_id, cb.bike_id, cb.discount_percent, cb.price_disc))
     except Exception:
         conn.rollback()
         db_run(conn,
-            "UPDATE client_bikes SET discount_percent=%s WHERE client_id=%s AND bike_id=%s",
-            (cb.discount_percent, client_id, cb.bike_id))
+            "UPDATE client_bikes SET discount_percent=%s, price_disc=%s WHERE client_id=%s AND bike_id=%s",
+            (cb.discount_percent, cb.price_disc, client_id, cb.bike_id))
     conn.close(); return {"ok": True}
 
 @app.put("/api/admin/clients/{client_id}/bikes/{bike_id}")
 async def update_client_bike(client_id: int, bike_id: int, cb: ClientBikeIn, auth=Depends(require_admin)):
     conn = get_db()
     db_run(conn,
-        "UPDATE client_bikes SET discount_percent=%s WHERE client_id=%s AND bike_id=%s",
-        (cb.discount_percent, client_id, bike_id))
+        "UPDATE client_bikes SET discount_percent=%s, price_disc=%s WHERE client_id=%s AND bike_id=%s",
+        (cb.discount_percent, cb.price_disc, client_id, bike_id))
     conn.close(); return {"ok": True}
 
 @app.delete("/api/admin/clients/{client_id}/bikes/{bike_id}")
@@ -506,14 +549,23 @@ async def submit_request(sub: SubmissionIn):
     conn = get_db()
     new_id = db_insert(conn,
         "INSERT INTO submissions (client_slug,bike_brand,bike_model,store_name,store_email,"
-        "voornaam,achternaam,email,tel,bedrijf,maat,betaling,opmerking,lang) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "voornaam,achternaam,email,tel,bedrijf,maat,batterij,betaling,opmerking,lang) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (sub.client_slug,sub.bike_brand,sub.bike_model,sub.store_name,sub.store_email,
-         sub.voornaam,sub.achternaam,sub.email,sub.tel,sub.bedrijf,sub.maat,sub.betaling,sub.opmerking,sub.lang))
+         sub.voornaam,sub.achternaam,sub.email,sub.tel,sub.bedrijf,sub.maat,sub.batterij,
+         sub.betaling,sub.opmerking,sub.lang))
     conn.close()
+
+    subject = f"🚲 Nieuwe aanvraag: {sub.bike_brand} {sub.bike_model} – {sub.voornaam} {sub.achternaam}"
+
+    # ── Stuur naar het filiaal ────────────────────────────────────────────────
     if sub.store_email:
-        subject = f"Nieuwe fietsaanvraag: {sub.bike_brand} {sub.bike_model} – {sub.voornaam} {sub.achternaam}"
-        send_email(sub.store_email, subject, build_email_html(sub))
+        send_email(sub.store_email, subject, build_email_html(sub, is_copy=False))
+
+    # ── Stuur kopie naar Welease intern (NOTIFY_EMAIL) ────────────────────────
+    if NOTIFY_EMAIL and NOTIFY_EMAIL != sub.store_email:
+        send_email(NOTIFY_EMAIL, f"[KOPIE] {subject}", build_email_html(sub, is_copy=True))
+
     return {"ok": True, "id": new_id}
 
 @app.get("/api/admin/submissions")
@@ -558,16 +610,22 @@ async def get_client_config(slug: str):
     if not client:
         conn.close(); raise HTTPException(404, f"Client '{slug}' niet gevonden")
     rows = db_fetchall_p(conn,
-        "SELECT b.*, cb.discount_percent FROM bikes b "
+        "SELECT b.*, cb.discount_percent, cb.price_disc FROM bikes b "
         "JOIN client_bikes cb ON b.id=cb.bike_id WHERE cb.client_id=%s ORDER BY b.brand,b.model",
         (client["id"],))
     bikes = []
     for b in rows:
-        disc = b.get("discount_percent", 0)
-        price_disc = round(b["price_orig"] * (1 - disc/100), 2)
-        b["priceDisc"] = price_disc
-        b["savings"]   = round(b["price_orig"] - price_disc, 2)
-        b["monthly"]   = monthly_price(price_disc)
+        # Vaste €-prijs heeft prioriteit boven percentage
+        if b.get("price_disc") is not None:
+            price_disc = round(float(b["price_disc"]), 2)
+            disc_pct   = round((1 - price_disc / b["price_orig"]) * 100, 1) if b["price_orig"] else 0
+        else:
+            disc_pct   = b.get("discount_percent", 0)
+            price_disc = round(b["price_orig"] * (1 - disc_pct / 100), 2)
+        b["priceDisc"]        = price_disc
+        b["savings"]          = round(b["price_orig"] - price_disc, 2)
+        b["discount_percent"] = disc_pct
+        b["monthly"]          = monthly_price(price_disc)
         bikes.append(b)
     stores = db_fetchall(conn,
         "SELECT * FROM client_stores WHERE client_id=%s ORDER BY sort_order,id", (client["id"],))
