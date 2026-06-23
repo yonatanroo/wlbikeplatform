@@ -1,6 +1,5 @@
-import os, json, smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import os, json
+import resend
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,12 +12,11 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")          # Railway PostgreSQL zet d
 DB_PATH      = os.getenv("DB_PATH",      "bikes.db")  # SQLite fallback (lokale dev)
 USE_PG       = bool(DATABASE_URL)
 
-SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.office365.com")
-SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER     = os.getenv("SMTP_USER", "")
-SMTP_PASS     = os.getenv("SMTP_PASS", "")
-SMTP_FROM     = os.getenv("SMTP_FROM", SMTP_USER)
-NOTIFY_EMAIL  = os.getenv("NOTIFY_EMAIL", "")   # bijv. info@welease.be — krijgt altijd een kopie
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+EMAIL_FROM     = os.getenv("EMAIL_FROM", "Welease <nathan@welease.be>")
+NOTIFY_EMAIL   = os.getenv("NOTIFY_EMAIL", "")   # bijv. nathan@welease.be — krijgt altijd een kopie
+
+resend.api_key = RESEND_API_KEY
 
 if USE_PG:
     import psycopg
@@ -273,21 +271,18 @@ class SubmissionStatus(BaseModel):
 def monthly_price(price_disc):
     return round((price_disc - 500) / 36, 2)
 
-# ── EMAIL ─────────────────────────────────────────────────────────────────────
+# ── EMAIL (via Resend API — werkt op Railway) ─────────────────────────────────
 def send_email(to: str, subject: str, body_html: str):
-    if not SMTP_USER or not SMTP_PASS:
-        print(f"[EMAIL] SMTP niet geconfigureerd — mail naar {to} niet verstuurd.")
+    if not RESEND_API_KEY:
+        print(f"[EMAIL] RESEND_API_KEY niet ingesteld — mail naar {to} niet verstuurd.")
         return
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = SMTP_FROM
-        msg["To"]      = to
-        msg.attach(MIMEText(body_html, "html", "utf-8"))
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-            server.ehlo(); server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_FROM, [to], msg.as_string())
+        resend.Emails.send({
+            "from":    EMAIL_FROM,
+            "to":      [to],
+            "subject": subject,
+            "html":    body_html,
+        })
         print(f"[EMAIL] Verstuurd naar {to}")
     except Exception as e:
         print(f"[EMAIL] Fout bij versturen naar {to}: {e}")
