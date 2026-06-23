@@ -2,7 +2,7 @@ import os, json, smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -544,8 +544,16 @@ async def delete_store(client_id: int, store_id: int, auth=Depends(require_admin
 # ════════════════════════════════════════════════════════════════════════════
 # SUBMISSIONS
 # ════════════════════════════════════════════════════════════════════════════
+def _send_submission_emails(sub: SubmissionIn):
+    """Wordt in de achtergrond uitgevoerd — blokkeert de response niet."""
+    subject = f"🚲 Nieuwe aanvraag: {sub.bike_brand} {sub.bike_model} – {sub.voornaam} {sub.achternaam}"
+    if sub.store_email:
+        send_email(sub.store_email, subject, build_email_html(sub, is_copy=False))
+    if NOTIFY_EMAIL and NOTIFY_EMAIL != sub.store_email:
+        send_email(NOTIFY_EMAIL, f"[KOPIE] {subject}", build_email_html(sub, is_copy=True))
+
 @app.post("/api/submit", status_code=201)
-async def submit_request(sub: SubmissionIn):
+async def submit_request(sub: SubmissionIn, background_tasks: BackgroundTasks):
     conn = get_db()
     new_id = db_insert(conn,
         "INSERT INTO submissions (client_slug,bike_brand,bike_model,store_name,store_email,"
@@ -556,15 +564,8 @@ async def submit_request(sub: SubmissionIn):
          sub.betaling,sub.opmerking,sub.lang))
     conn.close()
 
-    subject = f"🚲 Nieuwe aanvraag: {sub.bike_brand} {sub.bike_model} – {sub.voornaam} {sub.achternaam}"
-
-    # ── Stuur naar het filiaal ────────────────────────────────────────────────
-    if sub.store_email:
-        send_email(sub.store_email, subject, build_email_html(sub, is_copy=False))
-
-    # ── Stuur kopie naar Welease intern (NOTIFY_EMAIL) ────────────────────────
-    if NOTIFY_EMAIL and NOTIFY_EMAIL != sub.store_email:
-        send_email(NOTIFY_EMAIL, f"[KOPIE] {subject}", build_email_html(sub, is_copy=True))
+    # Sla op in DB en reageer meteen — e-mail wordt daarna in de achtergrond verstuurd
+    background_tasks.add_task(_send_submission_emails, sub)
 
     return {"ok": True, "id": new_id}
 
