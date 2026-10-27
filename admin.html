@@ -222,42 +222,61 @@ header{
   background:rgba(45,179,122,.15);border-color:var(--brand);color:var(--brand);
 }
 
-/* ── SUBMISSIONS TABLE ── */
-.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+/* ── SUBMISSIONS ── */
+.filter-bar{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
 .filter-select{
-  border:1px solid var(--border-hi);border-radius:var(--r-sm);
-  padding:8px 12px;font-size:13px;color:var(--text-1);background:var(--surface);
-  outline:none;font-family:inherit;-webkit-appearance:none;
+  border:1px solid var(--border-hi);border-radius:var(--r-md);
+  padding:9px 14px;font-size:13px;color:var(--text-1);background:var(--surface-hi);
+  outline:none;font-family:inherit;-webkit-appearance:none;font-weight:500;
+  box-shadow:var(--shadow-xs);
 }
-.filter-select:focus{border-color:var(--brand)}
-.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
-.badge-new{background:rgba(232,66,10,.1);color:var(--red)}
-.badge-done{background:rgba(45,179,122,.1);color:var(--brand)}
-.badge-contact{background:rgba(245,158,11,.12);color:var(--amber)}
+.filter-select:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-glow)}
 
-.sub-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
-.sub-table th{
-  text-align:left;padding:8px 14px;font-size:10px;font-weight:700;
-  text-transform:uppercase;letter-spacing:.6px;color:var(--text-4);
-  border-bottom:1px solid var(--border);position:sticky;top:56px;
-  background:var(--bg);z-index:5;
+.sub-cards{display:flex;flex-direction:column;gap:10px}
+
+.sub-card{
+  background:var(--surface-hi);border:1px solid var(--border);border-radius:var(--r-xl);
+  padding:18px 20px;box-shadow:var(--shadow-xs);
+  display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:16px;align-items:center;
+  transition:box-shadow .2s,transform .2s var(--ease-out);
 }
-.sub-table td{
-  padding:12px 14px;border-bottom:1px solid var(--border-lo);
-  color:var(--text-2);vertical-align:top;
+.sub-card:hover{box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+
+.sub-person{}
+.sub-name{font-size:15px;font-weight:700;color:var(--text-1);letter-spacing:-.02em}
+.sub-contact-line{font-size:12px;color:var(--brand);margin-top:2px}
+.sub-contact-line a{color:var(--brand)}
+.sub-tel{font-size:12px;color:var(--text-3);margin-top:1px}
+.sub-sector{font-size:11px;color:var(--text-4);margin-top:3px;font-style:italic}
+
+.sub-bike-col{}
+.sub-bike-name{font-size:14px;font-weight:700;color:var(--text-1)}
+.sub-bike-meta{font-size:12px;color:var(--text-3);margin-top:2px}
+
+.sub-shop-col{}
+.sub-client-tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;
+  background:rgba(45,179,122,.1);color:var(--brand);margin-bottom:4px}
+.sub-shop-name{font-size:13px;font-weight:600;color:var(--text-2)}
+.sub-shop-meta{font-size:11px;color:var(--text-3)}
+.sub-date{font-size:11px;color:var(--text-4);margin-top:4px}
+
+.sub-status-col{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:130px}
+.status-btn{
+  display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
+  border-radius:20px;font-size:12px;font-weight:700;border:none;cursor:pointer;
+  font-family:inherit;transition:all .15s var(--ease-spring);white-space:nowrap;
 }
-.sub-table tr:last-child td{border-bottom:none}
-.sub-table tr:hover td{background:var(--surface-lo)}
-.sub-name{font-weight:700;color:var(--text-1);font-size:14px}
-.sub-contact a{color:var(--brand);font-size:12px}
-.status-select{
-  border:1px solid var(--border);border-radius:var(--r-sm);
-  padding:4px 8px;font-size:11px;font-weight:600;color:var(--text-2);
-  background:var(--surface);outline:none;font-family:inherit;cursor:pointer;-webkit-appearance:none;
-}
-.sub-table-wrap{
-  background:var(--surface-hi);border:1px solid var(--border);
-  border-radius:var(--r-xl);overflow:hidden;box-shadow:var(--shadow-sm);
+.status-btn.nieuw{background:rgba(232,66,10,.1);color:var(--red)}
+.status-btn.nieuw:hover{background:rgba(232,66,10,.18)}
+.status-btn.behandeling{background:rgba(245,158,11,.12);color:var(--amber)}
+.status-btn.behandeling:hover{background:rgba(245,158,11,.2)}
+.status-btn.behandeld{background:rgba(45,179,122,.1);color:var(--brand)}
+.status-btn.behandeld:hover{background:rgba(45,179,122,.18)}
+.sub-payment{font-size:11px;color:var(--text-4);text-align:right}
+
+@media(max-width:900px){
+  .sub-card{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;}
+  .sub-status-col{align-items:flex-start}
 }
 
 /* ── TOAST ── */
@@ -359,24 +378,8 @@ header{
       <button class="btn btn-ghost btn-sm" onclick="loadSubmissions()">↻</button>
     </div>
   </div>
-  <div class="sub-table-wrap">
-    <table class="sub-table">
-      <thead>
-        <tr>
-          <th>Persoon</th>
-          <th>Fiets</th>
-          <th>Klant</th>
-          <th>Winkel</th>
-          <th>Betaling</th>
-          <th>Datum</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="subs-tbody">
-        <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-3)">Laden…</td></tr>
-      </tbody>
-    </table>
+  <div class="sub-cards" id="subs-cards">
+    <div class="page-loader"><div class="spinner"></div> Laden…</div>
   </div>
 </div>
 
@@ -628,6 +631,10 @@ async function toggleAllShops(bikeId) {
 }
 
 // ── SUBMISSIONS ────────────────────────────────────────────────────────────
+const STATUS_NEXT = { 'nieuw': 'in behandeling', 'in behandeling': 'behandeld', 'behandeld': 'nieuw' };
+const STATUS_LABEL = { 'nieuw': '🔴 Nieuw', 'in behandeling': '🟡 In behandeling', 'behandeld': '🟢 Behandeld' };
+const STATUS_CLASS = { 'nieuw': 'nieuw', 'in behandeling': 'behandeling', 'behandeld': 'behandeld' };
+
 async function loadSubmissions() {
   const client = document.getElementById('filter-client').value;
   const status = document.getElementById('filter-status').value;
@@ -635,59 +642,61 @@ async function loadSubmissions() {
   if (client) url += `client_slug=${client}&`;
   if (status) url += `status=${encodeURIComponent(status)}&`;
 
-  const tbody = document.getElementById('subs-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-3)">Laden…</td></tr>';
+  const container = document.getElementById('subs-cards');
+  container.innerHTML = '<div class="page-loader"><div class="spinner"></div> Laden…</div>';
   const res = await api(url);
   const subs = await res.json();
 
   if (!subs.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-3)">Geen aanvragen gevonden</td></tr>';
+    container.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>Geen aanvragen gevonden</p></div>';
     return;
   }
 
-  const statusBadge = s => {
-    if (s === 'nieuw') return '<span class="badge badge-new">Nieuw</span>';
-    if (s === 'behandeld') return '<span class="badge badge-done">Behandeld</span>';
-    return '<span class="badge badge-contact">' + h(s) + '</span>';
-  };
-
-  tbody.innerHTML = subs.map(s => `<tr>
-    <td>
-      <div class="sub-name">${h(s.voornaam)} ${h(s.achternaam)}</div>
-      <div class="sub-contact">
-        <a href="mailto:${h(s.email)}">${h(s.email)}</a><br/>
-        <a href="tel:${h(s.tel)}">${h(s.tel)}</a>
+  container.innerHTML = subs.map(s => {
+    const sc = STATUS_CLASS[s.status] || 'nieuw';
+    const sl = STATUS_LABEL[s.status] || s.status;
+    return `<div class="sub-card" id="sub-card-${s.id}">
+      <div class="sub-person">
+        <div class="sub-name">${h(s.voornaam)} ${h(s.achternaam)}</div>
+        <div class="sub-contact-line"><a href="mailto:${h(s.email)}">${h(s.email)}</a></div>
+        <div class="sub-tel"><a href="tel:${h(s.tel)}">${h(s.tel)}</a></div>
+        ${s.bedrijf ? `<div class="sub-sector">${h(s.bedrijf)}</div>` : ''}
       </div>
-      ${s.bedrijf ? `<div style="font-size:11px;color:var(--text-4);margin-top:3px">${h(s.bedrijf)}</div>` : ''}
-    </td>
-    <td>
-      <div style="font-weight:600;color:var(--text-1)">${h(s.bike_brand)} ${h(s.bike_model)}</div>
-      ${s.maat ? `<div style="font-size:11px;color:var(--text-3)">Maat: ${h(s.maat)}</div>` : ''}
-      ${s.batterij ? `<div style="font-size:11px;color:var(--text-3)">🔋 ${h(s.batterij)}</div>` : ''}
-    </td>
-    <td><span style="font-size:12px;font-weight:600;color:var(--brand)">${h(s.client_slug)}</span></td>
-    <td>
-      <div style="font-size:12px">${h(s.store_name) || '–'}</div>
-      ${s.store_email ? `<a href="mailto:${h(s.store_email)}" style="font-size:11px;color:var(--text-3)">${h(s.store_email)}</a>` : ''}
-    </td>
-    <td style="font-size:12px">${h(s.betaling) || '–'}</td>
-    <td style="font-size:12px;color:var(--text-3);white-space:nowrap">${fmtDate(s.created_at)}</td>
-    <td>${statusBadge(s.status)}</td>
-    <td>
-      <select class="status-select" onchange="updateStatus(${s.id},this.value)">
-        <option value="nieuw" ${s.status==='nieuw'?'selected':''}>Nieuw</option>
-        <option value="in behandeling" ${s.status==='in behandeling'?'selected':''}>In behandeling</option>
-        <option value="behandeld" ${s.status==='behandeld'?'selected':''}>Behandeld</option>
-      </select>
-    </td>
-  </tr>`).join('');
+      <div class="sub-bike-col">
+        <div class="sub-bike-name">${h(s.bike_brand)} ${h(s.bike_model)}</div>
+        <div class="sub-bike-meta">
+          ${s.maat && s.maat !== 'Geen maat geselecteerd' ? `📐 ${h(s.maat)}` : ''}
+          ${s.batterij ? ` · 🔋 ${h(s.batterij)}` : ''}
+        </div>
+      </div>
+      <div class="sub-shop-col">
+        <div class="sub-client-tag">${h(s.client_slug)}</div>
+        <div class="sub-shop-name">${h(s.store_name) || '–'}</div>
+        ${s.store_email ? `<div class="sub-shop-meta"><a href="mailto:${h(s.store_email)}" style="color:var(--text-4)">${h(s.store_email)}</a></div>` : ''}
+        <div class="sub-date">${fmtDate(s.created_at)}</div>
+      </div>
+      <div class="sub-status-col">
+        <button class="status-btn ${sc}" onclick="cycleStatus(${s.id},'${s.status}')">${sl}</button>
+        <div class="sub-payment">${h(s.betaling) || ''}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-async function updateStatus(id, status) {
-  const res = await api(`/api/admin/submissions/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
-  if (res.ok) toast('✓ Status bijgewerkt');
-  else { toast('⚠ Fout'); loadSubmissions(); }
+async function cycleStatus(id, current) {
+  const next = STATUS_NEXT[current] || 'nieuw';
+  const res = await api(`/api/admin/submissions/${id}`, { method: 'PUT', body: JSON.stringify({ status: next }) });
+  if (res.ok) {
+    // Update button in place without full reload
+    const card = document.getElementById('sub-card-' + id);
+    const btn = card.querySelector('.status-btn');
+    btn.className = 'status-btn ' + (STATUS_CLASS[next] || 'nieuw');
+    btn.textContent = STATUS_LABEL[next] || next;
+    btn.onclick = () => cycleStatus(id, next);
+    toast('✓ Status: ' + next);
+  } else toast('⚠ Fout bij opslaan');
 }
+
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 const saved = sessionStorage.getItem('wl_key');
