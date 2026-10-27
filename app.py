@@ -96,6 +96,7 @@ PG_SCHEMA = [
         desc_tr TEXT DEFAULT '', desc_ru TEXT DEFAULT '',
         sizes TEXT DEFAULT '[]', motor_badge INTEGER DEFAULT 0, img TEXT,
         motor_type TEXT DEFAULT '', batteries TEXT DEFAULT '[]',
+        discount_percent REAL DEFAULT 0, price_disc REAL DEFAULT NULL,
         created_at TIMESTAMP DEFAULT NOW()
     )""",
     """CREATE TABLE IF NOT EXISTS clients (
@@ -140,6 +141,7 @@ CREATE TABLE IF NOT EXISTS bikes (
     desc_nl TEXT, desc_fr TEXT, desc_en TEXT, desc_tr TEXT, desc_ru TEXT,
     sizes TEXT DEFAULT '[]', motor_badge INTEGER DEFAULT 0, img TEXT,
     motor_type TEXT DEFAULT '', batteries TEXT DEFAULT '[]',
+    discount_percent REAL DEFAULT 0, price_disc REAL DEFAULT NULL,
     created_at TEXT DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS clients (
@@ -200,6 +202,10 @@ def migrate_db():
             cur.execute("ALTER TABLE bikes ADD COLUMN motor_type TEXT DEFAULT ''")
         if "batteries" not in existing_bikes:
             cur.execute("ALTER TABLE bikes ADD COLUMN batteries TEXT DEFAULT '[]'")
+        if "discount_percent" not in existing_bikes:
+            cur.execute("ALTER TABLE bikes ADD COLUMN discount_percent REAL DEFAULT 0")
+        if "price_disc" not in existing_bikes:
+            cur.execute("ALTER TABLE bikes ADD COLUMN price_disc REAL DEFAULT NULL")
         # client_bikes table
         cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='client_bikes'")
         existing_cb = [r[0] for r in cur.fetchall()]
@@ -217,6 +223,10 @@ def migrate_db():
             conn.execute("ALTER TABLE bikes ADD COLUMN motor_type TEXT DEFAULT ''")
         if "batteries" not in existing_bikes:
             conn.execute("ALTER TABLE bikes ADD COLUMN batteries TEXT DEFAULT '[]'")
+        if "discount_percent" not in existing_bikes:
+            conn.execute("ALTER TABLE bikes ADD COLUMN discount_percent REAL DEFAULT 0")
+        if "price_disc" not in existing_bikes:
+            conn.execute("ALTER TABLE bikes ADD COLUMN price_disc REAL DEFAULT NULL")
         existing_cb = [row[1] for row in conn.execute("PRAGMA table_info(client_bikes)").fetchall()]
         if "price_disc" not in existing_cb:
             conn.execute("ALTER TABLE client_bikes ADD COLUMN price_disc REAL DEFAULT NULL")
@@ -241,6 +251,8 @@ class BikeIn(BaseModel):
     desc_nl: str=""; desc_fr: str=""; desc_en: str=""; desc_tr: str=""; desc_ru: str=""
     sizes: list=[]; motor_badge: int=0; img: Optional[str]=None
     motor_type: str=""; batteries: list=[]
+    discount_percent: float=0          # % korting — geldt voor ALLE klanten
+    price_disc: Optional[float]=None   # Vaste € prijs na korting — overschrijft discount_percent
 
 class ClientIn(BaseModel):
     slug: str; name: str; logo_html: str=""
@@ -266,6 +278,10 @@ class SubmissionIn(BaseModel):
 
 class SubmissionStatus(BaseModel):
     status: str
+
+class BikePrice(BaseModel):
+    discount_percent: float = 0
+    price_disc: Optional[float] = None
 
 # ── HELPERS ──────────────────────────────────────────────────────────────────
 def monthly_price(price_disc):
@@ -395,11 +411,12 @@ async def create_bike(bike: BikeIn, auth=Depends(require_admin)):
     conn = get_db()
     new_id = db_insert(conn,
         "INSERT INTO bikes (brand,model,price_orig,type_nl,type_fr,type_en,type_tr,type_ru,"
-        "desc_nl,desc_fr,desc_en,desc_tr,desc_ru,sizes,motor_badge,img,motor_type,batteries) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "desc_nl,desc_fr,desc_en,desc_tr,desc_ru,sizes,motor_badge,img,motor_type,batteries,"
+        "discount_percent,price_disc) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (bike.brand,bike.model,bike.price_orig,bike.type_nl,bike.type_fr,bike.type_en,bike.type_tr,bike.type_ru,
          bike.desc_nl,bike.desc_fr,bike.desc_en,bike.desc_tr,bike.desc_ru,json.dumps(bike.sizes),bike.motor_badge,bike.img,
-         bike.motor_type,json.dumps(bike.batteries)))
+         bike.motor_type,json.dumps(bike.batteries),bike.discount_percent,bike.price_disc))
     row = db_fetchone_p(conn, "SELECT * FROM bikes WHERE id=%s", (new_id,))
     conn.close(); return row
 
@@ -408,14 +425,46 @@ async def update_bike(bike_id: int, bike: BikeIn, auth=Depends(require_admin)):
     conn = get_db()
     db_run(conn,
         "UPDATE bikes SET brand=%s,model=%s,price_orig=%s,type_nl=%s,type_fr=%s,type_en=%s,type_tr=%s,type_ru=%s,"
-        "desc_nl=%s,desc_fr=%s,desc_en=%s,desc_tr=%s,desc_ru=%s,sizes=%s,motor_badge=%s,img=%s,motor_type=%s,batteries=%s WHERE id=%s",
+        "desc_nl=%s,desc_fr=%s,desc_en=%s,desc_tr=%s,desc_ru=%s,sizes=%s,motor_badge=%s,img=%s,motor_type=%s,batteries=%s,"
+        "discount_percent=%s,price_disc=%s WHERE id=%s",
         (bike.brand,bike.model,bike.price_orig,bike.type_nl,bike.type_fr,bike.type_en,bike.type_tr,bike.type_ru,
          bike.desc_nl,bike.desc_fr,bike.desc_en,bike.desc_tr,bike.desc_ru,json.dumps(bike.sizes),bike.motor_badge,bike.img,
-         bike.motor_type,json.dumps(bike.batteries),bike_id))
+         bike.motor_type,json.dumps(bike.batteries),bike.discount_percent,bike.price_disc,bike_id))
     row = db_fetchone_p(conn, "SELECT * FROM bikes WHERE id=%s", (bike_id,))
     conn.close()
     if not row: raise HTTPException(404, "Niet gevonden")
     return row
+
+@app.patch("/api/admin/bikes/{bike_id}/pricing")
+async def patch_bike_pricing(bike_id: int, price: BikePrice, auth=Depends(require_admin)):
+    conn = get_db()
+    db_run(conn, "UPDATE bikes SET discount_percent=%s, price_disc=%s WHERE id=%s",
+           (price.discount_percent, price.price_disc, bike_id))
+    row = db_fetchone_p(conn, "SELECT * FROM bikes WHERE id=%s", (bike_id,))
+    conn.close()
+    if not row: raise HTTPException(404, "Niet gevonden")
+    return row
+
+@app.post("/api/admin/bikes/{bike_id}/assign-all")
+async def assign_bike_to_all(bike_id: int, auth=Depends(require_admin)):
+    """Voeg fiets toe aan alle actieve clients in één keer."""
+    conn = get_db()
+    clients = db_fetchall(conn, "SELECT id FROM clients WHERE active=1")
+    for c in clients:
+        try:
+            db_insert(conn,
+                "INSERT INTO client_bikes (client_id,bike_id,discount_percent,price_disc) VALUES (%s,%s,0,NULL)",
+                (c["id"], bike_id))
+        except Exception:
+            conn.rollback()
+    conn.close(); return {"ok": True}
+
+@app.get("/api/admin/matrix")
+async def get_assignment_matrix(auth=Depends(require_admin)):
+    """Geeft alle client_bike koppelingen terug — efficiënter dan N losse calls."""
+    conn = get_db()
+    rows = db_fetchall(conn, "SELECT client_id, bike_id FROM client_bikes")
+    conn.close(); return rows
 
 @app.delete("/api/admin/bikes/{bike_id}")
 async def delete_bike(bike_id: int, auth=Depends(require_admin)):
@@ -606,12 +655,12 @@ async def get_client_config(slug: str):
     if not client:
         conn.close(); raise HTTPException(404, f"Client '{slug}' niet gevonden")
     rows = db_fetchall_p(conn,
-        "SELECT b.*, cb.discount_percent, cb.price_disc FROM bikes b "
+        "SELECT b.* FROM bikes b "
         "JOIN client_bikes cb ON b.id=cb.bike_id WHERE cb.client_id=%s ORDER BY b.brand,b.model",
         (client["id"],))
     bikes = []
     for b in rows:
-        # Vaste €-prijs heeft prioriteit boven percentage
+        # Prijs staat op de fiets zelf — zelfde voor alle klanten
         if b.get("price_disc") is not None:
             price_disc = round(float(b["price_disc"]), 2)
             disc_pct   = round((1 - price_disc / b["price_orig"]) * 100, 1) if b["price_orig"] else 0
