@@ -400,7 +400,7 @@ function logout() {
 async function doLogin() {
   const k = document.getElementById('api-key-input').value.trim();
   if (!k) return;
-  const res = await fetch(`${API}/api/auth/verify`, { headers: { 'X-Api-Key': k } });
+  const res = await fetch(`${API}/api/admin/clients`, { headers: { 'X-Api-Key': k } });
   if (res.ok) {
     KEY = k; sessionStorage.setItem('wl_key', k);
     document.getElementById('login-screen').style.display = 'none';
