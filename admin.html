@@ -441,7 +441,15 @@ header{
       </div>
       <div class="form-2col">
         <div class="form-row"><label>Catalogusprijs (€) *</label><input id="m-price" type="number" step="10" placeholder="3499"/></div>
-        <div class="form-row"><label>Afbeelding URL</label><input id="m-img" placeholder="https://…/fiets.png"/></div>
+        <div class="form-row">
+          <label>Afbeelding</label>
+          <div id="img-drop-zone" style="border:2px dashed var(--border-hi);border-radius:10px;padding:14px 10px;text-align:center;cursor:pointer;transition:border-color .18s,background .18s;background:var(--surface-lo);position:relative;">
+            <div id="img-drop-label" style="font-size:12px;color:var(--text-3);pointer-events:none;">Sleept een afbeelding hiernaartoe<br/><span style="font-size:11px;opacity:.7;">of klik om te selecteren</span></div>
+            <img id="img-preview" src="" style="display:none;max-height:90px;max-width:100%;margin:6px auto 0;border-radius:6px;object-fit:contain;"/>
+            <input type="file" id="img-file-input" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
+          </div>
+          <input id="m-img" type="hidden" placeholder=""/>
+        </div>
       </div>
       <div class="form-2col">
         <div class="form-row">
@@ -808,6 +816,40 @@ async function cycleStatus(id, current) {
 }
 
 
+// ── IMAGE DRAG & DROP ─────────────────────────────────────────────────────
+function setImgPreview(src) {
+  const preview = document.getElementById('img-preview');
+  const label   = document.getElementById('img-drop-label');
+  const hidden  = document.getElementById('m-img');
+  hidden.value  = src;
+  if (src) {
+    preview.src   = src;
+    preview.style.display = 'block';
+    label.style.display   = 'none';
+  } else {
+    preview.style.display = 'none';
+    label.style.display   = 'block';
+  }
+}
+function handleImgFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = e => setImgPreview(e.target.result);
+  reader.readAsDataURL(file);
+}
+(function initImgDrop() {
+  const zone = document.getElementById('img-drop-zone');
+  const fi   = document.getElementById('img-file-input');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--brand)'; zone.style.background = 'var(--surface)'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor = ''; zone.style.background = ''; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.style.borderColor = ''; zone.style.background = '';
+    const file = e.dataTransfer.files[0];
+    handleImgFile(file);
+  });
+  fi.addEventListener('change', () => handleImgFile(fi.files[0]));
+})();
+
 // ── BIKE MODAL ────────────────────────────────────────────────────────────
 function openModal(bikeId) {
   const modal = document.getElementById('bike-modal');
@@ -820,7 +862,7 @@ function openModal(bikeId) {
     document.getElementById('m-brand').value = bike.brand || '';
     document.getElementById('m-model').value = bike.model || '';
     document.getElementById('m-price').value = bike.price_orig || '';
-    document.getElementById('m-img').value = bike.img || '';
+    setImgPreview(bike.img || '');
     document.getElementById('m-motor').value = bike.motor_type || '';
     document.getElementById('m-badge').value = bike.motor_badge || 0;
     document.getElementById('m-batteries').value = (bike.batteries || []).join(', ');
@@ -832,7 +874,8 @@ function openModal(bikeId) {
   } else {
     document.getElementById('modal-title').textContent = 'Fiets toevoegen';
     document.getElementById('modal-save-btn').textContent = '+ Toevoegen';
-    ['m-id','m-brand','m-model','m-price','m-img','m-batteries','m-sizes','m-type-nl','m-type-fr','m-type-en','m-type-tr'].forEach(id => document.getElementById(id).value = '');
+    ['m-id','m-brand','m-model','m-price','m-batteries','m-sizes','m-type-nl','m-type-fr','m-type-en','m-type-tr'].forEach(id => document.getElementById(id).value = '');
+    setImgPreview('');
     document.getElementById('m-motor').value = '';
     document.getElementById('m-badge').value = 0;
   }
