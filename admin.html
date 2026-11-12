@@ -474,6 +474,16 @@ header{
         </div>
       </div>
       <div class="form-row">
+        <label>Leverancier</label>
+        <select id="m-supplier">
+          <option value="">— Geen / onbekend —</option>
+          <option value="Velektro">Velektro</option>
+          <option value="Wildiers">Wildiers</option>
+          <option value="Bicyclic">Bicyclic</option>
+        </select>
+        <div class="form-hint">Bepaalt naar wie de aanvraag gestuurd wordt bij elke klant</div>
+      </div>
+      <div class="form-row">
         <label>Batterijen</label>
         <input id="m-batteries" placeholder="400Wh, 500Wh, 625Wh"/>
         <div class="form-hint">Kommagescheiden — elke waarde wordt een keuzeoptie</div>
@@ -643,7 +653,8 @@ function renderBikes() {
           </div>
           <button class="save-price-btn" id="save-btn-${bike.id}" onclick="savePrice(${bike.id})">Opslaan</button>
         </div>
-        <div class="shops-row">
+        <div class="shops-row" style="margin-bottom:4px;">
+          ${bike.supplier ? `<span style="font-size:11px;font-weight:600;background:var(--brand-glow);color:var(--brand);border-radius:4px;padding:2px 7px;margin-right:6px;">${bike.supplier}</span>` : ''}
           <span class="shops-lbl">Shops</span>
           <button class="shop-pill shop-pill-all ${allAssigned ? 'all-active' : ''}"
             id="all-pill-${bike.id}" onclick="toggleAllShops(${bike.id})">
@@ -865,6 +876,7 @@ function openModal(bikeId) {
     setImgPreview(bike.img || '');
     document.getElementById('m-motor').value = bike.motor_type || '';
     document.getElementById('m-badge').value = bike.motor_badge || 0;
+    document.getElementById('m-supplier').value = bike.supplier || '';
     document.getElementById('m-batteries').value = (bike.batteries || []).join(', ');
     document.getElementById('m-sizes').value = (bike.sizes || []).join(', ');
     document.getElementById('m-type-nl').value = bike.type_nl || '';
@@ -878,6 +890,7 @@ function openModal(bikeId) {
     setImgPreview('');
     document.getElementById('m-motor').value = '';
     document.getElementById('m-badge').value = 0;
+    document.getElementById('m-supplier').value = '';
   }
 }
 function closeModal() {
@@ -903,6 +916,7 @@ async function saveBike() {
     type_fr: document.getElementById('m-type-fr').value.trim(),
     type_en: document.getElementById('m-type-en').value.trim(),
     type_tr: document.getElementById('m-type-tr').value.trim(),
+    supplier: document.getElementById('m-supplier').value,
   };
 
   const btn = document.getElementById('modal-save-btn');

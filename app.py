@@ -206,6 +206,8 @@ def migrate_db():
             cur.execute("ALTER TABLE bikes ADD COLUMN discount_percent REAL DEFAULT 0")
         if "price_disc" not in existing_bikes:
             cur.execute("ALTER TABLE bikes ADD COLUMN price_disc REAL DEFAULT NULL")
+        if "supplier" not in existing_bikes:
+            cur.execute("ALTER TABLE bikes ADD COLUMN supplier TEXT DEFAULT ''")
         # client_bikes table
         cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='client_bikes'")
         existing_cb = [r[0] for r in cur.fetchall()]
@@ -227,6 +229,8 @@ def migrate_db():
             conn.execute("ALTER TABLE bikes ADD COLUMN discount_percent REAL DEFAULT 0")
         if "price_disc" not in existing_bikes:
             conn.execute("ALTER TABLE bikes ADD COLUMN price_disc REAL DEFAULT NULL")
+        if "supplier" not in existing_bikes:
+            conn.execute("ALTER TABLE bikes ADD COLUMN supplier TEXT DEFAULT ''")
         existing_cb = [row[1] for row in conn.execute("PRAGMA table_info(client_bikes)").fetchall()]
         if "price_disc" not in existing_cb:
             conn.execute("ALTER TABLE client_bikes ADD COLUMN price_disc REAL DEFAULT NULL")
@@ -253,6 +257,7 @@ class BikeIn(BaseModel):
     motor_type: str=""; batteries: list=[]
     discount_percent: float=0          # % korting — geldt voor ALLE klanten
     price_disc: Optional[float]=None   # Vaste € prijs na korting — overschrijft discount_percent
+    supplier: str=""                   # Leverancier: "Velektro", "Wildiers", "Bicyclic", ...
 
 class ClientIn(BaseModel):
     slug: str; name: str; logo_html: str=""
@@ -412,11 +417,11 @@ async def create_bike(bike: BikeIn, auth=Depends(require_admin)):
     new_id = db_insert(conn,
         "INSERT INTO bikes (brand,model,price_orig,type_nl,type_fr,type_en,type_tr,type_ru,"
         "desc_nl,desc_fr,desc_en,desc_tr,desc_ru,sizes,motor_badge,img,motor_type,batteries,"
-        "discount_percent,price_disc) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "discount_percent,price_disc,supplier) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (bike.brand,bike.model,bike.price_orig,bike.type_nl,bike.type_fr,bike.type_en,bike.type_tr,bike.type_ru,
          bike.desc_nl,bike.desc_fr,bike.desc_en,bike.desc_tr,bike.desc_ru,json.dumps(bike.sizes),bike.motor_badge,bike.img,
-         bike.motor_type,json.dumps(bike.batteries),bike.discount_percent,bike.price_disc))
+         bike.motor_type,json.dumps(bike.batteries),bike.discount_percent,bike.price_disc,bike.supplier))
     row = db_fetchone_p(conn, "SELECT * FROM bikes WHERE id=%s", (new_id,))
     conn.close(); return row
 
@@ -426,10 +431,10 @@ async def update_bike(bike_id: int, bike: BikeIn, auth=Depends(require_admin)):
     db_run(conn,
         "UPDATE bikes SET brand=%s,model=%s,price_orig=%s,type_nl=%s,type_fr=%s,type_en=%s,type_tr=%s,type_ru=%s,"
         "desc_nl=%s,desc_fr=%s,desc_en=%s,desc_tr=%s,desc_ru=%s,sizes=%s,motor_badge=%s,img=%s,motor_type=%s,batteries=%s,"
-        "discount_percent=%s,price_disc=%s WHERE id=%s",
+        "discount_percent=%s,price_disc=%s,supplier=%s WHERE id=%s",
         (bike.brand,bike.model,bike.price_orig,bike.type_nl,bike.type_fr,bike.type_en,bike.type_tr,bike.type_ru,
          bike.desc_nl,bike.desc_fr,bike.desc_en,bike.desc_tr,bike.desc_ru,json.dumps(bike.sizes),bike.motor_badge,bike.img,
-         bike.motor_type,json.dumps(bike.batteries),bike.discount_percent,bike.price_disc,bike_id))
+         bike.motor_type,json.dumps(bike.batteries),bike.discount_percent,bike.price_disc,bike.supplier,bike_id))
     row = db_fetchone_p(conn, "SELECT * FROM bikes WHERE id=%s", (bike_id,))
     conn.close()
     if not row: raise HTTPException(404, "Niet gevonden")
